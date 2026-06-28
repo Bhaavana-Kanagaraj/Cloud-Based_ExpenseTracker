@@ -1,0 +1,47 @@
+[
+  {
+    "id": "seed-1",
+    "merchant": "Server Hosting",
+    "amount": 6500,
+    "category": "Utilities & Bills",
+    "date": "2026-06-21",
+    "description": "Database hosting and serverless compute credits",
+    "createdAt": "2026-06-21T15:11:28.863Z"
+  },
+  {
+    "id": "seed-2",
+    "merchant": "Swiggy Delivery",
+    "amount": 1240,
+    "category": "Food & Dining",
+    "date": "2026-06-22",
+    "description": "Team lunch and Indian refreshments",
+    "createdAt": "2026-06-22T15:11:28.863Z"
+  },
+  {
+    "id": "seed-3",
+    "merchant": "Ola Cabs",
+    "amount": 450,
+    "category": "Transportation & Fuel",
+    "date": "2026-06-23",
+    "description": "Cab ride to workspace and client meetings",
+    "createdAt": "2026-06-23T15:11:28.863Z"
+  },
+  {
+    "id": "seed-4",
+    "merchant": "Zomato Dineout",
+    "amount": 850,
+    "category": "Food & Dining",
+    "date": "2026-06-24",
+    "description": "Developer office team coffee & snacks",
+    "createdAt": "2026-06-24T15:11:28.863Z"
+  },
+  {
+    "id": "seed-5",
+    "merchant": "Flipkart Shopping",
+    "amount": 4500,
+    "category": "Shopping & Clothes",
+    "date": "2026-06-25",
+    "description": "Logitech keyboard and developer desk supplies",
+    "createdAt": "2026-06-25T15:11:28.863Z"
+  }
+]

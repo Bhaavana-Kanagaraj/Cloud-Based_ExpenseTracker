@@ -29,13 +29,35 @@ import {
   Download,
   RefreshCw,
   Sun,
-  Moon
+  Moon,
+  Heart,
+  Gift,
+  Compass,
+  BookOpen,
+  Briefcase,
+  Shield,
+  Landmark,
+  Plane,
+  Phone,
+  Award,
+  Tag,
+  PiggyBank,
+  Target,
+  LayoutDashboard
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Expense } from "./types";
 
-// Category configuration with brand colors and icons
-const CATEGORIES: { [key: string]: { color: string; bg: string; text: string; icon: any } } = {
+// Modular UI & Tooling imports
+import BubbleCursor from "./components/BubbleCursor";
+import BudgetAlertBanner from "./components/BudgetAlertBanner";
+import WelcomeIntro from "./components/WelcomeIntro";
+import InteractiveGuide from "./components/InteractiveGuide";
+import IncomeSavingsManager from "./components/IncomeSavingsManager";
+import CategoryDesigner, { CustomCategory } from "./components/CategoryDesigner";
+
+// Default preset configuration with brand colors and icons
+const DEFAULT_CATEGORIES: { [key: string]: { color: string; bg: string; text: string; icon: any } } = {
   "Food & Dining": { color: "#ef4444", bg: "bg-red-50", text: "text-red-700", icon: Utensils },
   "Shopping & Clothes": { color: "#ec4899", bg: "bg-pink-50", text: "text-pink-700", icon: ShoppingBag },
   "Transportation & Fuel": { color: "#f59e0b", bg: "bg-amber-50", text: "text-amber-700", icon: Car },
@@ -43,6 +65,31 @@ const CATEGORIES: { [key: string]: { color: string; bg: string; text: string; ic
   "Entertainment & Leisure": { color: "#8b5cf6", bg: "bg-purple-50", text: "text-purple-700", icon: Tv },
   "Utilities & Bills": { color: "#06b6d4", bg: "bg-cyan-50", text: "text-cyan-700", icon: Cloud },
   "Other Expenses": { color: "#64748b", bg: "bg-slate-50", text: "text-slate-700", icon: HelpCircle }
+};
+
+// Map of all available lucide vector icons for custom categories
+const ICON_MAP: { [key: string]: any } = {
+  Utensils,
+  ShoppingBag,
+  Car,
+  Home,
+  Tv,
+  Cloud,
+  HelpCircle,
+  Heart,
+  Gift,
+  Compass,
+  BookOpen,
+  Briefcase,
+  Shield,
+  Landmark,
+  Plane,
+  Phone,
+  Award,
+  Sparkles,
+  Tag,
+  PiggyBank,
+  Target
 };
 
 // Preset demo receipts for simulation
@@ -93,8 +140,93 @@ export default function App() {
     }
   }, [isDark]);
 
+  // Income, Savings, Navigation & Welcome configs
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>(() => {
+    const saved = localStorage.getItem("custom_categories");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return []; }
+    }
+    return [];
+  });
+
+  const [monthlyIncome, setMonthlyIncomeState] = useState<number>(() => {
+    const saved = localStorage.getItem("monthly_income");
+    return saved ? parseFloat(saved) : 120000;
+  });
+
+  const setMonthlyIncome = (val: number) => {
+    setMonthlyIncomeState(val);
+    localStorage.setItem("monthly_income", val.toString());
+  };
+
+  const [savingsGoal, setSavingsGoalState] = useState<number>(() => {
+    const saved = localStorage.getItem("savings_goal");
+    return saved ? parseInt(saved) : 20; // Default 20%
+  });
+
+  const setSavingsGoal = (val: number) => {
+    setSavingsGoalState(val);
+    localStorage.setItem("savings_goal", val.toString());
+  };
+
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
+
+  const [showWelcome, setShowWelcome] = useState<boolean>(() => {
+    const saved = localStorage.getItem("show_welcome");
+    return saved !== "false"; // Default true
+  });
+
+  const handleDismissWelcome = () => {
+    setShowWelcome(false);
+    localStorage.setItem("show_welcome", "false");
+  };
+
+  const [aiFocusMode, setAiFocusMode] = useState<string>("general");
+
+  // Dynamically constructed categories, shadows default layout seamlessly
+  const CATEGORIES = {
+    ...DEFAULT_CATEGORIES,
+    ...customCategories.reduce((acc, cat) => {
+      acc[cat.name] = {
+        color: cat.color,
+        bg: cat.bg,
+        text: cat.text,
+        icon: ICON_MAP[cat.iconName] || HelpCircle
+      };
+      return acc;
+    }, {} as { [key: string]: { color: string; bg: string; text: string; icon: any } })
+  };
+
+  const handleAddCustomCategory = (newCat: CustomCategory) => {
+    const updated = [...customCategories, newCat];
+    setCustomCategories(updated);
+    localStorage.setItem("custom_categories", JSON.stringify(updated));
+  };
+
+  const handleRemoveCustomCategory = (name: string) => {
+    const updated = customCategories.filter(c => c.name !== name);
+    setCustomCategories(updated);
+    localStorage.setItem("custom_categories", JSON.stringify(updated));
+  };
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [budgetLimit, setBudgetLimit] = useState<number>(50000);
+  const [budgetLimitState, setBudgetLimitState] = useState<number>(50000);
+
+  const setBudgetLimit = (val: number) => {
+    setBudgetLimitState(val);
+    localStorage.setItem("budget_limit", val.toString());
+  };
+
+  // Hydrate budget limit
+  useEffect(() => {
+    const saved = localStorage.getItem("budget_limit");
+    if (saved) {
+      setBudgetLimitState(parseFloat(saved));
+    }
+  }, []);
+
+  const budgetLimit = budgetLimitState;
+
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [cloudSynced, setCloudSynced] = useState<boolean>(true);
@@ -240,7 +372,10 @@ export default function App() {
       const response = await fetch("/api/gemini/parse-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ textPrompt: aiPrompt })
+        body: JSON.stringify({ 
+          textPrompt: aiPrompt,
+          categories: Object.keys(CATEGORIES)
+        })
       });
       const result = await response.json();
 
@@ -284,7 +419,10 @@ export default function App() {
       const response = await fetch("/api/gemini/parse-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ textPrompt: `OCR Extraction dump: ${demo.rawText}` })
+        body: JSON.stringify({ 
+          textPrompt: `OCR Extraction dump: ${demo.rawText}`,
+          categories: Object.keys(CATEGORIES)
+        })
       });
       const result = await response.json();
 
@@ -341,7 +479,8 @@ export default function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             base64Image: base64String,
-            mimeType: file.type
+            mimeType: file.type,
+            categories: Object.keys(CATEGORIES)
           })
         });
         const result = await response.json();
@@ -406,7 +545,12 @@ export default function App() {
       const response = await fetch("/api/gemini/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ budgetLimit })
+        body: JSON.stringify({ 
+          budgetLimit,
+          focusMode: aiFocusMode,
+          monthlyIncome,
+          savingsGoal
+        })
       });
       const result = await response.json();
       clearInterval(interval);
@@ -594,30 +738,21 @@ export default function App() {
   return (
     <div className="min-h-screen bg-transparent py-6 px-4 md:px-8 max-w-7xl mx-auto flex flex-col font-sans transition-colors duration-300">
       
-      {/* CLOUD HOSTING TOP BAR */}
-      <div className="w-full bg-slate-900 text-slate-200 rounded-2xl py-3 px-6 shadow-md mb-8 flex flex-col sm:flex-row justify-between items-center gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-600 rounded-lg text-white">
-            <Cloud className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 font-medium">CLOUD COMPUTING INTERNSHIP PORTFOLIO</div>
-            <div className="font-display font-bold text-sm tracking-wide text-white flex items-center gap-2">
-              Cloud-Native Expense Tracker 
-              <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-mono">v1.2.0</span>
-            </div>
-          </div>
+      {/* BUBBLE TRAIL EFFECT */}
+      <BubbleCursor />
+
+      {/* SIMPLE HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-6 border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white font-display tracking-tight flex items-center gap-2">
+            <Cloud className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <span>Cloud Expense Tracker</span>
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">Simple, secure, and user-friendly expense & savings planner</p>
         </div>
-        
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="hidden md:flex flex-col text-right">
-            <span className="text-slate-400">DEPLOYED RUNTIME:</span>
-            <span className="text-indigo-300">Google Cloud Run (Serverless)</span>
-          </div>
-          <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-1.5 rounded-xl border border-slate-700">
-            <span className={`w-2.5 h-2.5 rounded-full ${cloudSynced ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-amber-500 animate-ping'}`}></span>
-            <span className="text-slate-300">{cloudSynced ? "Cloud DB Synced" : "Saving to Cloud..."}</span>
-          </div>
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950/40 px-3 py-1.5 rounded-xl border border-slate-150 dark:border-slate-850 text-xs text-slate-500 font-mono">
+          <span className={`w-2 h-2 rounded-full ${cloudSynced ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-amber-500 animate-pulse'}`}></span>
+          <span>{cloudSynced ? "Synced online" : "Saving..."}</span>
         </div>
       </div>
 
@@ -639,8 +774,85 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* HEADER SECTION */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+      {/* NAVIGATION TABS MENU BAR */}
+      <div className="w-full bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-2.5 shadow-sm mb-8 flex flex-col md:flex-row justify-between items-center gap-4 transition-colors duration-300">
+        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab("dashboard")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all duration-150 cursor-pointer ${
+              activeTab === "dashboard"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-950"
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Workspace Ledger</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("planner")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all duration-150 cursor-pointer ${
+              activeTab === "planner"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-950"
+            }`}
+          >
+            <PiggyBank className="w-4 h-4" />
+            <span>Savings & Planner</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("categories")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all duration-150 cursor-pointer ${
+              activeTab === "categories"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-950"
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            <span>Tag Architect</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("guide")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all duration-150 cursor-pointer ${
+              activeTab === "guide"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-950"
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Onboarding Guide</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950/40 px-3.5 py-1.5 rounded-xl border border-slate-100 dark:border-slate-850 text-[10px] text-slate-400 dark:text-slate-500 font-mono tracking-wider w-full md:w-auto justify-center md:justify-end shrink-0">
+          <Clock className="w-3.5 h-3.5 text-indigo-500" />
+          <span>NET SPEND: ₹{totalSpend.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</span>
+        </div>
+      </div>
+
+      {/* WELCOME ONBOARDING HERO BANNER */}
+      <AnimatePresence>
+        {showWelcome && (
+          <WelcomeIntro 
+            onDismiss={handleDismissWelcome} 
+            onViewGuide={() => { setActiveTab("guide"); handleDismissWelcome(); }} 
+          />
+        )}
+      </AnimatePresence>
+
+      {activeTab === "dashboard" && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          {/* BUDGET WARNING AND DEFICIT ALERTS */}
+          <BudgetAlertBanner totalSpend={totalSpend} budgetLimit={budgetLimit} monthlyIncome={monthlyIncome} />
+
+          {/* HEADER SECTION */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight font-display transition-colors duration-300">Financial Dashboard</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors duration-300">Secure serverless container tracking, transaction ledger, and generative AI strategist insights.</p>
@@ -988,7 +1200,7 @@ export default function App() {
                   >
                     <option value="Daily">Daily (e.g. newspaper, milk)</option>
                     <option value="Weekly">Weekly (e.g. SaaS hosting, API calls)</option>
-                    <option value="Monthly">Monthly (e.g. Netflix, AWS Cloud India, Rent)</option>
+                    <option value="Monthly">Monthly (e.g. Netflix, Server Hosting, Rent)</option>
                   </select>
                 </div>
               )}
@@ -1018,13 +1230,13 @@ export default function App() {
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold flex items-center gap-2 font-display text-white">
                 <Sparkles className="w-5 h-5 text-indigo-400" />
-                Gemini AI Quick-Capture
+                Smart AI Quick-Capture
               </h2>
               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-mono">
-                Flash 3.5 Core
+                Advanced AI Core
               </span>
             </div>
-            <p className="text-xs text-indigo-200 mb-6">Automatically extract, categorize, and date transactions using Gemini NLP models</p>
+            <p className="text-xs text-indigo-200 mb-6">Automatically extract, categorize, and date transactions using advanced language models</p>
 
             {/* Sub-Panel 1: Natural Language Form */}
             <form onSubmit={handleAIPromptSubmit} className="mb-6 space-y-3">
@@ -1090,14 +1302,14 @@ export default function App() {
                 {fileParsing ? (
                   <>
                     <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
-                    <span className="text-xs font-semibold text-indigo-200">Gemini reading receipt details...</span>
+                    <span className="text-xs font-semibold text-indigo-200">AI reading receipt details...</span>
                   </>
                 ) : (
                   <>
                     <UploadCloud className="w-6 h-6 text-indigo-400" />
                     <div>
                       <span className="text-xs font-bold text-indigo-100">Upload Real Receipt Image</span>
-                      <p className="text-[10px] text-indigo-300 mt-0.5">Supports PNG, JPG, JPEG with direct Gemini Vision mapping</p>
+                      <p className="text-[10px] text-indigo-300 mt-0.5">Supports PNG, JPG, JPEG with direct AI Vision mapping</p>
                     </div>
                   </>
                 )}
@@ -1132,16 +1344,33 @@ export default function App() {
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white font-display">Gemini AI Financial Advisor</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white font-display">Smart AI Financial Advisor</h2>
               <p className="text-xs text-slate-400 dark:text-slate-400">Deep transaction scans, cost-leak detections, and forecast formulas</p>
             </div>
           </div>
 
-          <button
-            onClick={runAIFinancialAudit}
-            disabled={aiReportLoading}
-            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-          >
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Strategy Select Dropdown */}
+            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 w-full sm:w-auto shrink-0 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 font-mono uppercase">Focus:</span>
+              <select
+                value={aiFocusMode}
+                onChange={(e) => setAiFocusMode(e.target.value)}
+                className="bg-transparent text-xs text-slate-700 dark:text-slate-200 font-semibold focus:outline-none pr-1 cursor-pointer w-full"
+              >
+                <option value="general" className="dark:bg-slate-950">📊 General Strategy</option>
+                <option value="student" className="dark:bg-slate-950">🎓 Student Budget Coach</option>
+                <option value="tax" className="dark:bg-slate-950">💼 Corporate Tax-Saving</option>
+                <option value="frugal" className="dark:bg-slate-950">🔥 Frugal FIRE Blueprint</option>
+                <option value="business" className="dark:bg-slate-950">🏢 Startup SaaS FinOps</option>
+              </select>
+            </div>
+
+            <button
+              onClick={runAIFinancialAudit}
+              disabled={aiReportLoading}
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all duration-150 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+            >
             {aiReportLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Generating Audit...
@@ -1153,6 +1382,7 @@ export default function App() {
             )}
           </button>
         </div>
+      </div>
 
         {/* AUDIT OUTPUT DISPLAY */}
         <div className="p-6 bg-slate-50/40 dark:bg-slate-950/40 min-h-[160px] flex flex-col justify-center transition-colors duration-300">
@@ -1160,7 +1390,7 @@ export default function App() {
             <div className="flex flex-col items-center justify-center py-10">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-600 dark:text-indigo-400 mb-4" />
               <div className="text-sm font-semibold text-indigo-950 dark:text-white font-mono animate-pulse">{advisorState}</div>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Calling Gemini cloud-native models securely on the server...</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Calling cloud-native AI models securely on the server...</p>
             </div>
           ) : aiReport ? (
             <motion.div 
@@ -1177,7 +1407,7 @@ export default function App() {
               <Sparkles className="w-8 h-8 text-indigo-300 dark:text-indigo-600 mx-auto mb-3" />
               <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 font-display">Strategic AI Advisor Offline</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 max-w-md mx-auto mt-1">
-                Trigger an automated deep audit of your current active cloud container ledger. Gemini will build category charts, highlight cost leaks, and draft optimizations.
+                Trigger an automated deep audit of your current active cloud container ledger. The AI will build category charts, highlight cost leaks, and draft optimizations.
               </p>
             </div>
           )}
@@ -1333,11 +1563,59 @@ export default function App() {
           )}
         </div>
       </div>
+      </motion.div>
+      )}
+
+      {/* SAVINGS & BUDGET PLANNING MODULE */}
+      {activeTab === "planner" && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          <IncomeSavingsManager
+            monthlyIncome={monthlyIncome}
+            setMonthlyIncome={setMonthlyIncome}
+            savingsGoal={savingsGoal}
+            setSavingsGoal={setSavingsGoal}
+            totalSpend={totalSpend}
+            budgetLimit={budgetLimit}
+            setBudgetLimit={setBudgetLimit}
+          />
+        </motion.div>
+      )}
+
+      {/* BESPOKE CATEGORY DESIGNER MODULE */}
+      {activeTab === "categories" && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          <CategoryDesigner
+            customCategories={customCategories}
+            onAddCategory={handleAddCustomCategory}
+            onRemoveCategory={handleRemoveCustomCategory}
+            defaultCategories={DEFAULT_CATEGORIES}
+          />
+        </motion.div>
+      )}
+
+      {/* COMPREHENSIVE COMPANION ONBOARDING WALKTHROUGH */}
+      {activeTab === "guide" && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          <InteractiveGuide onNavigateToDashboard={() => setActiveTab("dashboard")} />
+        </motion.div>
+      )}
 
       {/* FOOTER METADATA INFO */}
-      <footer className="mt-12 text-center text-[10px] text-slate-400 dark:text-slate-500 font-mono space-y-1 py-4 border-t border-slate-150 dark:border-slate-850">
-        <p>© 2026 Cloud-Native AI Budget Strategist Core. Built for Cloud Computing Internship Project.</p>
-        <p>Container Status: Running • Region Ingress: Port 3000 • Powered by Express Node.js & Google Gemini 3.5 Flash</p>
+      <footer className="mt-12 text-center text-xs text-slate-400 dark:text-slate-500 font-mono space-y-1 py-4 border-t border-slate-150 dark:border-slate-850">
+        <p>© 2026 Cloud Expense Tracker. All rights reserved.</p>
+        <p>Simple and secure budget & savings planner powered by Advanced AI Models.</p>
       </footer>
 
     </div>

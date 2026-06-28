@@ -47,7 +47,7 @@ const initializeDb = () => {
       const defaultExpenses = [
         {
           id: "seed-1",
-          merchant: "AWS Cloud India",
+          merchant: "Server Hosting",
           amount: 6500.00,
           category: "Utilities & Bills",
           date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
@@ -184,7 +184,7 @@ app.post("/api/gemini/analyze", async (req, res) => {
   }
 
   const expenses = readExpenses();
-  const { budgetLimit } = req.body;
+  const { budgetLimit, focusMode, monthlyIncome, savingsGoal } = req.body;
 
   if (expenses.length === 0) {
     return res.json({
@@ -198,10 +198,35 @@ app.post("/api/gemini/analyze", async (req, res) => {
     `- [${e.date}] ${e.merchant}: ₹${e.amount.toFixed(2)} (${e.category}) ${e.description ? `- "${e.description}"` : ''}`
   )).join("\n");
 
-  const systemInstruction = `You are an elite Indian financial strategist, chartered accountant, and Cloud Billing Advisor. Your goal is to analyze the user's list of Indian cloud and personal expenses, detect anomalies, evaluate monthly budget limits in Indian Rupees (INR, ₹), and produce a stellar, professional, executive-ready Markdown report. Keep your tone helpful, professional, encouraging, and deeply practical. Provide actionable cost-cutting techniques. Do not use any placeholders or general templates; analyze the exact figures provided. Use the Indian Rupee (₹) symbol for all monetary figures. Include a structured table summarizing expenses by category, calculating the percentage of budget consumed.`;
+  let focusTitle = "Balanced Financial Strategist";
+  let focusSystem = "You are an elite Indian financial strategist, chartered accountant, and Cloud Billing Advisor.";
+  let focusInstructions = "Keep your tone helpful, professional, encouraging, and deeply practical. Provide actionable cost-cutting techniques.";
+
+  if (focusMode === "tax-saving" || focusMode === "tax") {
+    focusTitle = "Tax Efficiency & Deductions Advisor";
+    focusSystem = "You are an expert Indian Chartered Accountant specializing in Personal Income Tax optimization, corporate business deductions, and Indian GST rules.";
+    focusInstructions = "Provide customized advice on Indian tax brackets, Section 80C, Section 80D, standard deductions, and tax-deductible business expense write-offs from the user's ledger.";
+  } else if (focusMode === "student") {
+    focusTitle = "Frugal Student Budgeting Coach";
+    focusSystem = "You are a friendly, highly practical college student counselor and frugal financial advisor.";
+    focusInstructions = "Focus on extreme student budget optimization, seeking out student discounts, affordable hostel/PG dining alternatives, public transportation savings, and low-cost academic and leisure tips.";
+  } else if (focusMode === "business") {
+    focusTitle = "Corporate SaaS & Cloud Audit Expert";
+    focusSystem = "You are an elite enterprise SaaS Architect, Cloud Cost Optimisation specialist (FinOps Certified), and Startup CFO.";
+    focusInstructions = "Analyze IT subscriptions, cloud infrastructure (like cloud hosting, databases, CDNs), development utilities, serverless consumption scaling, spotting duplicate SaaS tooling, and maximizing resource ROI.";
+  } else if (focusMode === "extreme" || focusMode === "frugal") {
+    focusTitle = "Extreme Savings Wealth Builder (FIRE)";
+    focusSystem = "You are an aggressive F.I.R.E. (Financial Independence, Retire Early) mentor and extreme frugality strategist.";
+    focusInstructions = "Evaluate the ledger with an eagle eye for strict non-essential cuts. Highlight all luxury spend, eating out, impulsive shopping, and design a hyper-aggressive wealth-building plan.";
+  }
+
+  const systemInstruction = `${focusSystem} Your goal is to analyze the user's list of Indian cloud and personal expenses, detect anomalies, evaluate monthly budget limits in Indian Rupees (INR, ₹), and produce a stellar, professional, executive-ready Markdown report. ${focusInstructions} Do not use any placeholders or general templates; analyze the exact figures provided. Use the Indian Rupee (₹) symbol for all monetary figures. Include a structured table summarizing expenses by category, calculating the percentage of budget consumed.`;
 
   const prompt = `
 I have set my total monthly budget limit to ₹${budgetLimit || 50000}.
+My recorded monthly income is ₹${monthlyIncome || 120000} and my savings rate target is ${savingsGoal || 20}%.
+My chosen AI analysis focus is: **${focusTitle}**.
+
 Here is my current list of tracked expenses:
 ${expenseSummary}
 
@@ -210,8 +235,9 @@ Structure the report with the following clear visual sections:
 1. **Executive Portfolio Summary**: Deep-dive analysis of overall health, total spent vs. remaining budget (using ₹ symbol), and risk factor (Safe, Caution, or Critical).
 2. **Spending Breakdown & Analytics**: A beautifully formatted Markdown table detailing: Category, Total Spent (₹), and Percentage of Overall Budget.
 3. **Anomalies & Cost Efficiency Leaks**: Identify individual high-cost transactions, potential duplicate spend, or areas of wasteful expenditures.
-4. **Cloud-Native Cost Optimization Recommendations**: 3 to 4 actionable, professional tips to save money (if AWS Cloud India or local Indian cloud entities are listed, give specific cloud-based recommendations; otherwise, give top-tier savings suggestions).
-5. **Projected Forecast**: A paragraph predicting end-of-month status based on current spending rate.
+4. **Custom Focus-Mode Analysis**: Deliver a deep-dive section strictly based on the **${focusTitle}** perspective, suggesting specific improvements or insights for this category of spending.
+5. **Cloud-Native Cost Optimization Recommendations**: 3 to 4 actionable, professional tips to save money (if server hosting or cloud-native subscription entities are listed, give specific cloud-based recommendations; otherwise, give top-tier savings suggestions).
+6. **Projected Forecast**: A paragraph predicting end-of-month status based on current spending rate.
 
 Use markdown accents (bold, highlight tables, lists, blockquotes) to make the UX inside the application look incredibly modern and clean. Use Indian style formatting for figures.
 `;
@@ -242,11 +268,24 @@ app.post("/api/gemini/parse-receipt", async (req, res) => {
     });
   }
 
-  const { textPrompt, base64Image, mimeType } = req.body;
+  const { textPrompt, base64Image, mimeType, categories } = req.body;
 
   if (!textPrompt && !base64Image) {
     return res.status(400).json({ success: false, message: "Must provide either text query or base64 receipt image." });
   }
+
+  // Assemble dynamic list of supported categories
+  const defaultCategories = [
+    "Food & Dining",
+    "Shopping & Clothes",
+    "Transportation & Fuel",
+    "Housing & Rent",
+    "Entertainment & Leisure",
+    "Utilities & Bills",
+    "Other Expenses"
+  ];
+  const activeCategories = Array.isArray(categories) && categories.length > 0 ? categories : defaultCategories;
+  const categoriesListStr = activeCategories.map(c => `'${c}'`).join(", ");
 
   let contents: any[] = [];
   let promptText = "Extract and parse receipt information into a structured schema.";
@@ -258,9 +297,9 @@ app.post("/api/gemini/parse-receipt", async (req, res) => {
         mimeType: mimeType
       }
     });
-    promptText = "Carefully analyze this receipt image. Extract the Merchant Name, the Total Paid Amount, the most fitting Expense Category, the Date of transaction (format: YYYY-MM-DD), and a brief description summarizing what was purchased. Use today's year (2026) if the year is ambiguous.";
+    promptText = `Carefully analyze this receipt image. Extract the Merchant Name, the Total Paid Amount, the most fitting Expense Category, the Date of transaction (format: YYYY-MM-DD), and a brief description summarizing what was purchased. Use today's year (2026) if the year is ambiguous. Prefer matching one of these categories if applicable: [${categoriesListStr}].`;
   } else if (textPrompt) {
-    promptText = `Parse this natural language description of an expense and extract the details. Today's date is ${new Date().toISOString().split('T')[0]}. Text: "${textPrompt}"`;
+    promptText = `Parse this natural language description of an expense and extract the details. Today's date is ${new Date().toISOString().split('T')[0]}. Prefer matching one of these categories: [${categoriesListStr}]. Text: "${textPrompt}"`;
   }
 
   contents.push({ text: promptText });
@@ -284,7 +323,7 @@ app.post("/api/gemini/parse-receipt", async (req, res) => {
             },
             category: {
               type: Type.STRING,
-              description: "The most appropriate category. MUST be one of: 'Food & Dining', 'Shopping & Clothes', 'Transportation & Fuel', 'Housing & Rent', 'Entertainment & Leisure', 'Utilities & Bills', 'Other Expenses'."
+              description: `The most appropriate category. MUST match one of the active categories: [${categoriesListStr}]. If none matches closely, use 'Other Expenses'.`
             },
             date: {
               type: Type.STRING,

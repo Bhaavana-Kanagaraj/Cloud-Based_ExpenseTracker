@@ -1,6 +1,6 @@
 {
   "name": "Cloud Based Expense Tracker",
-  "description": "A secure, cloud-native full-stack expense tracker hosted on Cloud Run, featuring real-time analytics, receipt parsing, and smart AI budgeting insights using Gemini.",
+  "description": "A secure, cloud-native full-stack expense tracker hosted on Cloud Run, featuring real-time analytics, receipt parsing, and smart AI budgeting insights using advanced language models.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
